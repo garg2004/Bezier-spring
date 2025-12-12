@@ -1,225 +1,115 @@
-math, physics, and design choices (short)
-Math
+# 🎨 Interactive Cubic Bézier Curve – Spring Physics Simulation (Web)
 
-Cubic Bézier formula:
+This project is an interactive visualization of a **cubic Bézier curve** that behaves like a flexible rope.  
+The animation responds to mouse movement, and the curve updates in real-time using a **spring–damping physics model**.
 
-𝐵
-(
-𝑡
-)
-=
-(
-1
-−
-𝑡
-)
-3
-𝑃
-0
-+
-3
-(
-1
-−
-𝑡
-)
-2
-𝑡
-𝑃
-1
-+
-3
-(
-1
-−
-𝑡
-)
-𝑡
-2
-𝑃
-2
-+
-𝑡
-3
-𝑃
-3
-B(t)=(1−t)
-3
-P
-0
-	​
+Everything is implemented **from scratch**, including:
 
-+3(1−t)
-2
-tP
-1
-	​
+- Cubic Bézier curve math  
+- Tangent calculation  
+- Spring physics  
+- Real-time canvas rendering  
+- Mouse-based interaction  
 
-+3(1−t)t
-2
-P
-2
-	​
+---
 
-+t
-3
-P
-3
-	​
+## 🚀 Features
+
+### ✔️ Manual Bézier Curve Implementation
+The curve is computed using the standard cubic Bézier formula:
+
+B(t) = (1 - t)^3 P0
++ 3(1 - t)^2 t P1
++ 3(1 - t) t^2 P2
++ t^3 P3
+
+  
+### ✔️ Tangent Visualization
+Directional tangent lines are rendered using the derivative:
+
+B'(t) = 3(1 - t)^2 (P1 - P0)
++ 6(1 - t) t (P2 - P1)
++ 3 t^2 (P3 - P2)
 
 
-Implemented directly in bezierPoint(t, p0, p1, p2, p3) (web) and bezierPoint (Swift).
+### ✔️ Spring-Damper Motion
+The inner control points move naturally using:
 
-Derivative:
 
-𝐵
-′
-(
-𝑡
-)
-=
-3
-(
-1
-−
-𝑡
-)
-2
-(
-𝑃
-1
-−
-𝑃
-0
-)
-+
-6
-(
-1
-−
-𝑡
-)
-𝑡
-(
-𝑃
-2
-−
-𝑃
-1
-)
-+
-3
-𝑡
-2
-(
-𝑃
-3
-−
-𝑃
-2
-)
-B
-′
-(t)=3(1−t)
-2
-(P
-1
-	​
 
-−P
-0
-	​
+a = -k(x - target) - damping * v
 
-)+6(1−t)t(P
-2
-	​
 
-−P
-1
-	​
+### ✔️ Smooth 60 FPS Canvas Rendering
+The entire simulation is updated using `requestAnimationFrame`.
 
-)+3t
-2
-(P
-3
-	​
+---
 
-−P
-2
-	​
+## 🛠️ Technologies Used
 
-)
+- **HTML5 Canvas**
+- **JavaScript**
+- **CSS**
 
-Used to compute tangent vectors; normalized and drawn as short lines to visualize direction.
+---
 
-Physics model
+## 📁 Project Structure
 
-Spring-damper:
 
-𝑎
-=
-−
-𝑘
-(
-𝑥
-−
-𝑥
-target
-)
-−
-𝑐
-𝑣
-a=−k(x−x
-target
-	​
 
-)−cv
+Bezier-spring/
+│
+├── index.html # HTML + CSS + JS (single page)
+└── README.md # Documentation
 
-Integrated using semi-implicit Euler:
 
-𝑣
-←
-𝑣
-+
-𝑎
-⋅
-𝑑
-𝑡
-v←v+a⋅dt
+*(Your entire project runs from one HTML file.)*
 
-𝑥
-←
-𝑥
-+
-𝑣
-⋅
-𝑑
-𝑡
-x←x+v⋅dt
+---
 
-Semi-implicit Euler chosen for simple stability compared to explicit Euler.
+## 🔧 How to Run
 
-Parameters chosen to feel rope-like: k (stiffness) fairly large, damping moderate. Tweak to taste.
+Simply open:
 
-Design choices
 
-Sample t with STEP = 0.01 for smoothness without heavy CPU cost.
 
-Tangents drawn at intervals (not at every sample) for clarity.
+index.html
 
-Interaction:
 
-Web: drag P1/P2; mouse influences when not dragging.
+No server or build tools required.
 
-iOS: CoreMotion controls P1/P2 targets; optionally add touch drag for testing in simulator.
+---
 
-No external libraries; all math done explicitly.
+## 🌀 Interaction Controls
 
-How to run 
-Web (quick)
+- **Drag** the orange control points to reshape the curve  
+- **Move your mouse** to influence the rope motion  
+- Tangent lines update dynamically as the curve moves  
 
-Save bezier-spring.html to disk.
+---
 
-Open in Chrome/Firefox/Edge by double-click or File → Open.
+## 🎥 Recording Instructions (for assignment submission)
 
-Interact: drag inner control points or move mouse.
+1. Open `index.html` in your browser  
+2. Use a screen recorder:  
+   - Windows → `Win + G` (Xbox Game Bar)  
+   - macOS → `Cmd + Shift + 5`  
+3. Record 20–30 seconds showing:  
+   - dragging the control points  
+   - rope-like motion  
+   - tangent lines updating  
+
+---
+
+## 📌 Notes
+
+- No libraries or frameworks were used  
+- All math + physics code is custom built  
+- Spring stiffness, damping, and sampling step can be tuned easily  
+- The project is extendable (gravity, wind, multi-segment ropes, etc.)
+
+---
+
+## 🧑‍💻 Author
+
+Created as part of an assignment on **graphics programming, Bézier math, and real-time physics simulation**.

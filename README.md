@@ -111,6 +111,9 @@ No server or build tools required.
 
 ---
 
+### 🎥 Demo Video (Google Drive)
+▶️ https://drive.google.com/file/d/1hfdivRwkrQziwrxz5NWG4eE3ucLXPXqN/view?usp=sharing
+
 ## 🧑‍💻 Author
 
 Created as part of an assignment on **graphics programming, Bézier math, and real-time physics simulation**.

@@ -1,0 +1,248 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <title>Interactive Cubic Bézier Rope (Canvas)</title>
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <style>
+    html,body { height:100%; margin:0; background:#0f1724; color:#e6edf3; font-family:Inter,system-ui,Arial; }
+    canvas { display:block; width:100%; height:100vh; background: linear-gradient(180deg,#071024 0%, #071a2b 100%); }
+    .hint { position: absolute; left:12px; top:12px; padding:8px 12px; background:rgba(255,255,255,0.04); border-radius:8px; font-size:13px; }
+    .small { opacity:0.8; font-size:12px; margin-top:6px; color:#9fb0c8; }
+  </style>
+</head>
+<body>
+  <div class="hint">
+    Drag the two inner control points (orange) or move mouse to influence them.<br>
+    <span class="small">Tangent lines (cyan), control points (orange fixed endpoints blue), curve (white).</span>
+  </div>
+  <canvas id="c"></canvas>
+
+<script>
+/* -------------------------
+   Interactive Cubic Bézier
+   -------------------------
+   Implements:
+   - Cubic Bézier sampling B(t)
+   - Derivative B'(t) for tangents
+   - Spring-damper for P1 & P2 moving towards mouse target
+   - Draw curve, control points, and tangent lines
+   No external libs.
+*/
+
+// ---------- Utilities ----------
+function vec(x=0,y=0){ return {x,y}; }
+function add(a,b){ return {x:a.x+b.x, y:a.y+b.y}; }
+function sub(a,b){ return {x:a.x-b.x, y:a.y-b.y}; }
+function mul(a,s){ return {x:a.x*s, y:a.y*s}; }
+function len(v){ return Math.hypot(v.x, v.y); }
+function norm(v){
+  const L = Math.hypot(v.x, v.y) || 1;
+  return {x: v.x / L, y: v.y / L};
+}
+
+// ---------- Canvas setup ----------
+const canvas = document.getElementById('c');
+const ctx = canvas.getContext('2d', { alpha: false });
+let DPR = Math.max(1, window.devicePixelRatio || 1);
+function resize(){
+  DPR = Math.max(1, window.devicePixelRatio || 1);
+  canvas.width = Math.floor(window.innerWidth * DPR);
+  canvas.height = Math.floor(window.innerHeight * DPR);
+  canvas.style.width = window.innerWidth + 'px';
+  canvas.style.height = window.innerHeight + 'px';
+  ctx.setTransform(DPR,0,0,DPR,0,0);
+}
+window.addEventListener('resize', resize);
+resize();
+
+// ---------- Curve & Physics state ----------
+const P0 = vec(100, window.innerHeight - 120); // fixed left
+const P3 = vec(window.innerWidth - 100, 120);   // fixed right
+
+// Dynamic points have state: position, velocity
+function makeDynamic(x,y){ return {pos: vec(x,y), vel: vec(0,0), target: vec(x,y)}; }
+const P1 = makeDynamic(P0.x + (P3.x - P0.x) * 0.25, P0.y - 80);
+const P2 = makeDynamic(P0.x + (P3.x - P0.x) * 0.75, P3.y + 80);
+
+// physics parameters (tweak for different behavior)
+const SPRING_K = 200.0;       // stiffness
+const DAMPING = 30.0;         // damping coefficient
+const MASS = 1.0;             // mass of control point
+const dtTargetLag = 0.02;     // smoothing time for target (not required)
+
+// sampling
+const STEP = 0.01; // sample t 0..1 with this step
+
+// mouse interaction state
+const mouse = {x: window.innerWidth/2, y: window.innerHeight/2, down:false};
+let dragging = null; // "P1" or "P2" or null
+
+canvas.addEventListener('mousedown', (e)=>{
+  const r = 12;
+  const mx = e.clientX, my = e.clientY;
+  function hit(dyn){ return Math.hypot(dyn.pos.x - mx, dyn.pos.y - my) <= r + 2; }
+  if (hit(P1)) { dragging = 'P1'; mouse.down = true; }
+  else if (hit(P2)) { dragging = 'P2'; mouse.down = true; }
+});
+window.addEventListener('mouseup', ()=>{ dragging = null; mouse.down=false; });
+window.addEventListener('mousemove', (e)=>{
+  mouse.x = e.clientX; mouse.y = e.clientY;
+  // if dragging, snap target immediately to mouse
+  if (dragging === 'P1') { P1.target.x = mouse.x; P1.target.y = mouse.y; }
+  else if (dragging === 'P2') { P2.target.x = mouse.x; P2.target.y = mouse.y; }
+  else {
+    // when not dragging, we still use the mouse to influence both control targets modestly
+    // create a soft target near the mouse but mapped to canvas center area
+    const centerInfluence = 0.25;
+    P1.target.x = P1.pos.x * (1-centerInfluence) + mouse.x * centerInfluence;
+    P1.target.y = P1.pos.y * (1-centerInfluence) + mouse.y * centerInfluence;
+    P2.target.x = P2.pos.x * (1-centerInfluence) + mouse.x * centerInfluence;
+    P2.target.y = P2.pos.y * (1-centerInfluence) + mouse.y * centerInfluence;
+  }
+});
+
+// Initialization of targets to start positions
+P1.target = {...P1.pos};
+P2.target = {...P2.pos};
+
+// ---------- Bézier math (manual) ----------
+function bezierPoint(t, p0, p1, p2, p3){
+  // B(t) = (1−t)^3 p0 + 3(1−t)^2 t p1 + 3(1−t) t^2 p2 + t^3 p3
+  const u = 1 - t;
+  const u2 = u * u;
+  const u3 = u2 * u;
+  const t2 = t * t;
+  const t3 = t2 * t;
+  const a = u3;
+  const b = 3 * u2 * t;
+  const c = 3 * u * t2;
+  const d = t3;
+  return {
+    x: a*p0.x + b*p1.x + c*p2.x + d*p3.x,
+    y: a*p0.y + b*p1.y + c*p2.y + d*p3.y
+  };
+}
+
+function bezierDerivative(t, p0, p1, p2, p3){
+  // B'(t) = 3(1−t)^2 (p1−p0) + 6(1−t)t (p2−p1) + 3 t^2 (p3−p2)
+  const u = 1 - t;
+  const u2 = u * u;
+  const t2 = t * t;
+  const term1 = mul(sub(p1,p0), 3 * u2);
+  const term2 = mul(sub(p2,p1), 6 * u * t);
+  const term3 = mul(sub(p3,p2), 3 * t2);
+  return add(add(term1, term2), term3);
+}
+
+// ---------- Physics integrator (explicit semi-implicit Euler) ----------
+function integrateSpring(dyn, dt){
+  // acceleration = -k*(pos - target) - damping * vel
+  const dist = sub(dyn.pos, dyn.target); // pos - target
+  const springForce = mul(dist, -SPRING_K); // -k*(pos-target)
+  const dampingForce = mul(dyn.vel, -DAMPING); // -d * vel
+  const net = add(springForce, dampingForce);
+  const acc = mul(net, 1 / MASS);
+  // semi-implicit Euler (better stability)
+  dyn.vel.x += acc.x * dt;
+  dyn.vel.y += acc.y * dt;
+  dyn.pos.x += dyn.vel.x * dt;
+  dyn.pos.y += dyn.vel.y * dt;
+}
+
+// ---------- Drawing helpers ----------
+function clear(){
+  ctx.fillStyle = '#071224';
+  ctx.fillRect(0,0,canvas.width/DPR, canvas.height/DPR);
+}
+
+function drawCircle(p, r, fill, stroke, lineWidth=1){
+  ctx.beginPath();
+  ctx.arc(p.x, p.y, r, 0, Math.PI*2);
+  ctx.fillStyle = fill;
+  ctx.fill();
+  if (stroke){
+    ctx.lineWidth = lineWidth;
+    ctx.strokeStyle = stroke;
+    ctx.stroke();
+  }
+}
+
+// ---------- Animation loop ----------
+let last = performance.now();
+function frame(now){
+  const dt = Math.min(0.033, (now - last)/1000); // clamp dt up to ~33ms
+  last = now;
+
+  // physics update: if not dragging we still move towards mouse-influenced targets
+  integrateSpring(P1, dt);
+  integrateSpring(P2, dt);
+
+  // Draw
+  clear();
+
+  // draw polyline of control polygon
+  ctx.lineWidth = 1;
+  ctx.setLineDash([6,6]);
+  ctx.strokeStyle = 'rgba(120,140,180,0.12)';
+  ctx.beginPath();
+  ctx.moveTo(P0.x, P0.y);
+  ctx.lineTo(P1.pos.x, P1.pos.y);
+  ctx.lineTo(P2.pos.x, P2.pos.y);
+  ctx.lineTo(P3.x, P3.y);
+  ctx.stroke();
+  ctx.setLineDash([]);
+
+  // sample and draw Bézier as a stroked path
+  ctx.lineWidth = 3;
+  ctx.strokeStyle = '#e6eef7';
+  ctx.beginPath();
+  let first = true;
+  for (let t=0; t<=1+1e-9; t += STEP){
+    const p = bezierPoint(t, P0, P1.pos, P2.pos, P3);
+    if (first){ ctx.moveTo(p.x, p.y); first=false; } else ctx.lineTo(p.x, p.y);
+  }
+  ctx.stroke();
+
+  // draw tangent lines at intervals
+  const tangentInterval = 0.12; // spacing between drawn tangents (0..1)
+  ctx.lineWidth = 2;
+  for (let t=0; t<=1+1e-9; t += tangentInterval){
+    const p = bezierPoint(t, P0, P1.pos, P2.pos, P3);
+    const d = bezierDerivative(t, P0, P1.pos, P2.pos, P3);
+    const n = norm(d);
+    const lenT = 28; // length of tangent line
+    ctx.beginPath();
+    ctx.moveTo(p.x - n.x*lenT*0.5, p.y - n.y*lenT*0.5);
+    ctx.lineTo(p.x + n.x*lenT*0.5, p.y + n.y*lenT*0.5);
+    ctx.strokeStyle = 'rgba(64,224,255,0.9)'; // cyan-ish
+    ctx.stroke();
+  }
+
+  // draw control points
+  // endpoints: P0 & P3 as fixed (blue)
+  drawCircle(P0, 8, '#1e90ff', '#103b66', 2);
+  drawCircle(P3, 8, '#1e90ff', '#103b66', 2);
+
+  // dynamic P1 & P2 (orange) with a glow
+  drawCircle(P1.pos, 10, '#ffb86b', '#7a4b1f', 2);
+  drawCircle(P2.pos, 10, '#ffb86b', '#7a4b1f', 2);
+
+  // small indicator of target (faint)
+  ctx.beginPath();
+  ctx.arc(P1.target.x, P1.target.y, 4, 0, Math.PI*2);
+  ctx.fillStyle = 'rgba(255,184,107,0.18)';
+  ctx.fill();
+  ctx.beginPath();
+  ctx.arc(P2.target.x, P2.target.y, 4, 0, Math.PI*2);
+  ctx.fillStyle = 'rgba(255,184,107,0.18)';
+  ctx.fill();
+
+  requestAnimationFrame(frame);
+}
+
+// start
+requestAnimationFrame(frame);
+</script>
+</body>
+</html>

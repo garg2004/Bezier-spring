@@ -51,7 +51,7 @@ The entire simulation is updated using `requestAnimationFrame`.
 ## 🛠️ Technologies Used
 
 - **HTML5 Canvas**
-
+- **JavaScript**
 ---
 
 ## 📁 Project Structure

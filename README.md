@@ -23,7 +23,8 @@ B(t) = (1 - t)^3 P0
 + 3(1 - t) t^2 P2
 + t^3 P3
 
-  
+---
+
 ### ✔️ Tangent Visualization
 Directional tangent lines are rendered using the derivative:
 
@@ -31,6 +32,7 @@ B'(t) = 3(1 - t)^2 (P1 - P0)
 + 6(1 - t) t (P2 - P1)
 + 3 t^2 (P3 - P2)
 
+---
 
 ### ✔️ Spring-Damper Motion
 The inner control points move naturally using:
@@ -39,6 +41,7 @@ The inner control points move naturally using:
 
 a = -k(x - target) - damping * v
 
+---
 
 ### ✔️ Smooth 60 FPS Canvas Rendering
 The entire simulation is updated using `requestAnimationFrame`.
@@ -48,8 +51,6 @@ The entire simulation is updated using `requestAnimationFrame`.
 ## 🛠️ Technologies Used
 
 - **HTML5 Canvas**
-- **JavaScript**
-- **CSS**
 
 ---
 
